@@ -1,13 +1,13 @@
 [tool.poetry]
-name = "sceptre-hook-template"
+name = "sceptre-amplify-config-generate-hook"
 version = "0.0.1"
 packages = [{ include = "hook" }]
 readme = "README.md"
-homepage = "https://github.com/Sceptre/sceptre-hook-template"
-repository = "https://github.com/Sceptre/sceptre-hook-template"
-authors = ["Sceptre <sceptreorg@gmail.com>"]
-description = "A Github template for Sceptre hooks"
-keywords = ["sceptre", "sceptre-hook"]
+homepage = "https://github.com/nicholasphair/sceptre-amplify-config-generate-hook"
+repository = "https://github.com/nicholasphair/sceptre-amplify-config-generate-hook"
+authors = ["Nicholas Phair <np4ay@viginia.edu>"]
+description = "A Sceptre hook for resolving variables in openapi definitions."
+keywords = ["sceptre", "sceptre-hook", "amplify"]
 license = "Apache-2.0"
 classifiers = [
   "Intended Audience :: Developers",
@@ -18,12 +18,16 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11"
 ]
+include = [
+  "LICENSE",
+]
 
 [tool.poetry.plugins."sceptre.hooks"]
-"custom" = "hook.custom:Custom"
+"amplify_config_generator" = "hook.amplify_config_generate_hook:AmplifyConfigGenerateHook"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.12"
+pydantic = "^2.0"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.2.1"
@@ -31,6 +35,9 @@ tox = "^4.0.0"
 pytest = "^7.2.2"
 pytest-cov = "^4.0.0"
 sceptre = ">3.2"
+# botocore never resolves without this.
+# https://github.com/python-poetry/poetry/issues/1116
+urllib3 = ">=1.20,<1.26"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
