@@ -13,80 +13,81 @@ class AmplifyConfigBuilder:
     """
 
     def fetch_user_pool(self):
-        lup_resp = self.cm.call("cognito-idp", "list_user_pools", {"MaxResults": 60})
-        _user_pool = [
+        """Return a description of the first user that matches a prefix."""
+        listing = self.cm.call("cognito-idp", "list_user_pools", {"MaxResults": 60})
+        user_pool = [
             up
-            for up in lup_resp.get("UserPools", [])
+            for up in listing.get("UserPools", [])
             if up["Name"].startswith(self.prefix)
         ][0]
-        _user_pool_id = _user_pool["Id"]
+        user_pool_id = user_pool["Id"]
 
-        dup = self.cm.call(
-            "cognito-idp", "describe_user_pool", {"UserPoolId": _user_pool_id}
+        description = self.cm.call(
+            "cognito-idp", "describe_user_pool", {"UserPoolId": user_pool_id}
         )
-        return dup["UserPool"]
+        return description["UserPool"]
 
     def fetch_user_pool_client(self, user_pool_id):
-        lupc_resp = self.cm.call(
+        listing = self.cm.call(
             "cognito-idp",
             "list_user_pool_clients",
             {"UserPoolId": user_pool_id, "MaxResults": 60},
         )
-        user_pool_client = lupc_resp.get("UserPoolClients")[0]
-        client_id = user_pool_client["ClientId"]
+        client = listing.get("UserPoolClients")[0]
+        client_id = client["ClientId"]
 
-        lupc_resp = self.cm.call(
+        client_description = self.cm.call(
             "cognito-idp",
             "describe_user_pool_client",
             {"UserPoolId": user_pool_id, "ClientId": client_id},
         )
-        user_pool_client = lupc_resp["UserPoolClient"]
+        return client_description["UserPoolClient"]
 
-        dupd = self.cm.call(
+    def fetch_user_pool_domain(self):
+        domain = self.cm.call(
             "cognito-idp",
             "describe_user_pool_domain",
             {"Domain": f"{self.prefix}-user-pool-domain"},
         )
-        user_pool_client.update(dupd)
-        return user_pool_client
+        return domain
 
     def fetch_identity_pool(self):
-        lip_resp = self.cm.call(
+        listing = self.cm.call(
             "cognito-identity", "list_identity_pools", {"MaxResults": 60}
         )
         identity_pool = [
             idp
-            for idp in lip_resp["IdentityPools"]
+            for idp in listing["IdentityPools"]
             if idp["IdentityPoolName"].startswith(self.prefix)
         ][0]
         identity_pool_id = identity_pool["IdentityPoolId"]
 
-        dip_resp = self.cm.call(
+        description = self.cm.call(
             "cognito-identity",
             "describe_identity_pool",
             {"IdentityPoolId": identity_pool_id},
         )
-        return dip_resp
+        return description
 
     def build(self):
         user_pool = self.fetch_user_pool()
         user_pool_id = user_pool["Id"]
         user_pool_client = self.fetch_user_pool_client(user_pool_id)
+        user_pool_domain = self.fetch_user_pool_domain()
         identity_pool = self.fetch_identity_pool()
-        print(identity_pool)
 
         password_settings = PasswordProtectionSettings(
             passwordPolicyMinLength=8, passwordPolicyCharacters=[]
         )
 
-        domain = user_pool_client["DomainDescription"]["Domain"]
+        domain = user_pool_domain["DomainDescription"]["Domain"]
         domain = f"{domain}.auth.{self.cm.region}.amazoncognito.com"
         oauth = OAuth(
             WebDomain=domain,
-            AppClientId=user_pool_client["ClientId"],
-            SignInRedirectURI=",".join(user_pool_client["CallbackURLs"]),
-            SignOutRedirectURI=",".join(user_pool_client["LogoutURLs"]),
-            Scopes=user_pool_client["AllowedOAuthScopes"],
+            AppClientId=user_pool_client.get("ClientId", ""),
+            SignInRedirectURI=",".join(user_pool_client.get("CallbackURLs", [])),
+            SignOutRedirectURI=",".join(user_pool_client.get("LogoutURLs", [])),
+            Scopes=user_pool_client.get("AllowedOAuthScopes", []),
         )
 
         auth_default = AuthDefault(

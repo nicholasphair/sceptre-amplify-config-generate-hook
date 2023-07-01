@@ -1,4 +1,8 @@
-# README
+# sceptre-amplify-config-generate-hook
+Hook that will build an Amplify configuration by querying AWS for cognito
+information.
+
+:warning: This is hook super opinionated, and needs to be generalized.
 
 ## Overview
 
