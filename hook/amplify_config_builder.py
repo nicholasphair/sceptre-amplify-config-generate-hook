@@ -47,7 +47,7 @@ class AmplifyConfigBuilder:
         domain = self.cm.call(
             "cognito-idp",
             "describe_user_pool_domain",
-            {"Domain": f"{self.prefix}-user-pool-domain"},
+            {"Domain": f"{self.prefix}user-pool-domain"},
         )
         return domain
 
