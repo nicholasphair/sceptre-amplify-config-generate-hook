@@ -1,19 +1,23 @@
 # -*- coding: utf-8 -*-
+from dataclasses import dataclass
 from moto import mock_cognitoidp, mock_cognitoidentity
 from unittest import TestCase, mock
+from pathlib import Path
 
 
 import boto3
 import pytest
 from sceptre.connection_manager import ConnectionManager
+from sceptre import stack
 import os
 
-from hook.amplify_config_builder import AmplifyConfigBuilder
+# from hook.amplify_config_builder import AmplifyConfigBuilder
+import hook.amplify_config_generate_hook as amplifyhook
 
 
 @mock_cognitoidp
 @mock_cognitoidentity
-class TestAmplifyConfigBuilder:
+class TestAmplifyConfigGenerateHook:
     def bootstrap_environment(self):
         """Mocked AWS Credentials for moto."""
         os.environ["AWS_ACCESS_KEY_ID"] = "testing"
@@ -116,81 +120,7 @@ class TestAmplifyConfigBuilder:
         ##     IdentityPoolId=ipid,
         ## )
 
-    def test_fetch_userpool(self):
-        user_pool_id = self.bootstrap_userpool()
-
-        connection = ConnectionManager("us-east-1")
-        confbuilder = AmplifyConfigBuilder(connection_manager=connection, prefix="My")
-        fetched_id = confbuilder.fetch_user_pool()["Id"]
-
-        assert fetched_id == user_pool_id
-
-        self.teardown_userpool(user_pool_id)
-
-    def test_fetch_userpool_client(self):
-        user_pool_id = self.bootstrap_userpool()
-        client_id = self.bootstrap_userpool_client(user_pool_id)
-
-        connection = ConnectionManager("us-east-1")
-        confbuilder = AmplifyConfigBuilder(connection_manager=connection, prefix="My")
-        fetched_client = confbuilder.fetch_user_pool_client(user_pool_id=user_pool_id)
-        fetched_client_id = fetched_client["ClientId"]
-        fetched_user_pool_id = fetched_client["UserPoolId"]
-
-        assert fetched_user_pool_id == user_pool_id
-        assert fetched_client_id == client_id
-
-        self.teardown_userpool_client(user_pool_id, client_id)
-        self.teardown_userpool(user_pool_id)
-
-    def test_fetch_userpool_domain(self):
-        user_pool_id = self.bootstrap_userpool()
-        domain = self.bootstrap_userpool_domain(user_pool_id)
-
-        connection = ConnectionManager("us-east-1")
-        confbuilder = AmplifyConfigBuilder(connection_manager=connection, prefix="My")
-        fetched = confbuilder.fetch_user_pool_domain()
-
-        fetched_domain = fetched["DomainDescription"]["Domain"]
-        fetched_user_pool_id = fetched["DomainDescription"]["UserPoolId"]
-
-        assert fetched_domain == domain
-        assert fetched_user_pool_id == user_pool_id
-
-        self.teardown_userpool_domain(user_pool_id, domain)
-        self.teardown_userpool(user_pool_id)
-
-    def test_fetch_identity_pool(self):
-        pool_id = self.bootstrap_identity_pool()
-
-        connection = ConnectionManager("us-east-1")
-        unpatched_call = connection.call
-        confbuilder = AmplifyConfigBuilder(connection_manager=connection, prefix="My")
-
-        with mock.patch.object(connection, "call") as mock_method:
-
-            def side_effect(service, command, kwargs):
-                if service == "cognito-identity" and command == "list_identity_pools":
-                    return {
-                        "IdentityPools": [
-                            {
-                                "IdentityPoolId": pool_id,
-                                "IdentityPoolName": "MyIdentityPool",
-                            },
-                        ]
-                    }
-                return unpatched_call(service, command, kwargs)
-
-            mock_method.side_effect = side_effect
-
-            fetched = confbuilder.fetch_identity_pool()
-
-        fetched_id = fetched["IdentityPoolId"]
-        assert pool_id == fetched_id
-
-        self.teardown_identity_pool(pool_id)
-
-    def test_build(self):
+    def test_build(self, tmp_path):
         user_pool_id = self.bootstrap_userpool()
         client_id = self.bootstrap_userpool_client(user_pool_id)
         domain = self.bootstrap_userpool_domain(user_pool_id)
@@ -198,7 +128,7 @@ class TestAmplifyConfigBuilder:
 
         connection = ConnectionManager("us-east-1")
         unpatched_call = connection.call
-        confbuilder = AmplifyConfigBuilder(connection_manager=connection, prefix="My")
+        #confbuilder = AmplifyConfigBuilder(connection_manager=connection, prefix="My")
 
         with mock.patch.object(connection, "call") as mock_method:
 
@@ -216,11 +146,25 @@ class TestAmplifyConfigBuilder:
 
             mock_method.side_effect = side_effect
 
-            config = confbuilder.build()
+            h = amplifyhook.AmplifyConfigGenerateHook(
+                argument={
+                    amplifyhook.AMPLIFY_CONFIG: tmp_path / "test.dart",
+                    amplifyhook.PREFIX: "My",
+                    amplifyhook.FORMAT: "dart",
+                },
+            )
+            h.stack = MockStack(connection_manager=connection)
 
-        assert config
+            h.run()
+            assert (tmp_path / "test.dart").exists()
+            assert 'amplifyconfig' in (tmp_path / 'test.dart').read_text()
+
 
         self.teardown_userpool_domain(user_pool_id, domain)
         self.teardown_userpool_client(user_pool_id, client_id)
         self.teardown_userpool(user_pool_id)
         self.teardown_identity_pool(idpool_id)
+
+@dataclass
+class MockStack: 
+    connection_manager: ConnectionManager

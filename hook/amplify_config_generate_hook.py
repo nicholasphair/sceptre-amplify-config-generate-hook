@@ -8,6 +8,10 @@ PREFIX = "prefix"
 
 AMPLIFY_CONFIG = "amplify_config"
 
+FORMAT = "format"
+
+AVAILABLE_FORMATS = ["json", "dart"]
+
 
 class AmplifyConfigGenerateHook(Hook):
     """
@@ -21,9 +25,6 @@ class AmplifyConfigGenerateHook(Hook):
     stack: sceptre.stack.Stack
          The associated stack of the hook.
     """
-
-    def __init__(self, *args, **kwargs):
-        super(AmplifyConfigGenerateHook, self).__init__(*args, **kwargs)
 
     def run(self):
         """
@@ -49,6 +50,10 @@ class AmplifyConfigGenerateHook(Hook):
         if not amplify_config:
             raise Exception(InvalidHookArgumentTypeError)
 
+        format = self.argument.get(FORMAT, "json")
+        if format not in AVAILABLE_FORMATS:
+            raise Exception(InvalidHookArgumentTypeError)
+
         if isinstance(prefix, sceptre.resolvers.stack_attr.StackAttr):
             prefix.stack = self.stack
             prefix = prefix.resolve()
@@ -57,4 +62,11 @@ class AmplifyConfigGenerateHook(Hook):
         config = builder.build()
 
         with open(amplify_config, "w") as f:
-            f.write(config.model_dump_json(indent=4))
+            json_out = config.model_dump_json(indent=4)
+            if format == "dart":
+                f.write(f"const amplifyconfig = '''\n{json_out}\n''';")
+            else:
+                f.write(json_out)
+
+    def __init__(self, *args, **kwargs):
+        super(AmplifyConfigGenerateHook, self).__init__(*args, **kwargs)
