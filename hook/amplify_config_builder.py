@@ -95,7 +95,7 @@ class AmplifyConfigBuilder:
             authenticationFlowType="USER_SRP_AUTH",  # NB: Could not find in API calls.
             socialProviders=[],
             usernameAttributes=[],
-            signupAttributes=["EMAIL", "NAME"],  # NB: Could not find in API calls.
+            signupAttributes=["EMAIL"],  # NB: Could not find in API calls.
             passwordProtectionSettings=password_settings,
             mfaConfiguration=user_pool["MfaConfiguration"],
             mfaTypes=["SMS"],  # NB: Could not find in API calls.

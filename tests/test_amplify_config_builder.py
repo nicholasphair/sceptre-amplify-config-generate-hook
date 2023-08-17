@@ -82,7 +82,7 @@ class TestAmplifyConnfigBuilder:
         cognito_idp.delete_user_pool_client(UserPoolId=upid, ClientId=client_id)
 
     def bootstrap_userpool_domain(self, upid):
-        domain = "My-user-pool-domain"
+        domain = "Myuser-pool-domain"
         client = boto3.client("cognito-idp", region_name="us-east-1")
         client.create_user_pool_domain(
             Domain=domain,
